@@ -1,3 +1,5 @@
+# Ignore changes to the Shapefiles and Rasters directories (the files take up too much space in GitHub).
+
 /Shapefiles
 
 /Rasters
