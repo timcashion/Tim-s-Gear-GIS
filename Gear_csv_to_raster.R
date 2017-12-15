@@ -11,16 +11,64 @@
 # 01 INITIAL SETUP
 # ----------------
 
-# For first timers:
-# install.packages("raster")
-# install.packages("sf")
-# install.packages("rgdal")
-
 # Setup
-library(raster) # raster work
-library(sf) # shapefile work
-library(stringr) # replace spaces w "_". Used in file naming.
-setwd('C:/Users/spopov/Documents/GIS/Tim/Gear maps')
+
+# Note this part only works if you are in RStudio. If not using RStudio, set wd manually to wherever this script is stored.
+# Set working directory to directory this R script is stored in.
+# Not sure if this is actually working? Need more testing later. 
+set_wd <- function() {
+  if (!require(rstudioapi)) {
+    install.packages("rstudioapi", repos = "http://cran.stat.sfu.ca/")
+    require(rstudioapi)
+  }
+  current_path <- getActiveDocumentContext()$path 
+  setwd(dirname(current_path))
+  print(getwd())
+}
+
+
+# Install and load all other necessary packages
+if (!require(rgeos)) {
+  install.packages("rgeos", repos = "http://cran.stat.sfu.ca/")
+  require(rgeos)
+}
+if (!require(rgdal)) {
+  install.packages("rgdal", repos = "http://cran.stat.sfu.ca/")
+  require(rgdal)
+}
+if (!require(raster)) {
+  install.packages("raster", repos = "http://cran.stat.sfu.ca/")
+  require(raster)
+}
+if (!require(sf)) {
+  install.packages("sf", repos = "http://cran.stat.sfu.ca/")
+  require(sf)
+}
+if (!require(maps)) {
+  install.packages("maps", repos = "http://cran.stat.sfu.ca/")
+  require(maps)
+}
+if (!require(rasterVis)) {
+  install.packages("rasterVis", repos = "http://cran.stat.sfu.ca/")
+  require(rasterVis)
+}
+if (!require(stringr)) {
+  install.packages("stringr", repos = "http://cran.stat.sfu.ca/")
+  require(stringr)
+}
+if (!require(ggplot2)) {
+  install.packages("ggplot2", repos = "http://cran.stat.sfu.ca/")
+  require(ggplot2)
+}
+if(!require(viridis)) {
+  install.packages("viridis", repos="http://cran.stat.sfu.ca/")
+  require(viridis)
+}
+# WARNING: extrafont is great for making pretty plots with nice fonts, but can take awhile to download and load up all the fonts the first time you install & load it. 
+# if (!require(extrafont)) {
+#  install.packages("extrafont", repos = "http://cran.stat.sfu.ca/")
+#  require(extrafont)
+# } 
 
 # ----------------
 # 02 CSV READ AND DATAFRAME CREATION
@@ -36,7 +84,7 @@ c1950 <- read.csv('Data/IndustrialAllocatedGear_1950_1954_Aggregated.csv')
 c1980 <- read.csv('Data/IndustrialAllocatedGear_1980_1984_Aggregated.csv')
 c2010 <- read.csv('Data/IndustrialAllocatedGear_2010_2014_Aggregated.csv')
 
-# Create list of different gear types, using 2010-2014 data. This works bc we have same gears in all data. Ideally would want to loop through all CSVs and get unique values from all of them. 
+# Create list of different gear types, using 2010-2014 data. This works bc we have same gears in all data. Ideally would want to loop through all CSVs and get unique values from all of them
 geartypes <- unique(c2010$gear_type)
 
 # Disaggregate gear types
@@ -46,8 +94,8 @@ geartypes <- unique(c2010$gear_type)
 df1950_list <- list() # create empty list. This will be filled with the df names we create in the following forloop. Later, we can use this list to call each df when we create our rasters. 
 for (gear in geartypes) {
   print(gear)
-  dfname <- paste(gear, 1950) # create data frame names for 1950s data in the form: "<geartype> 1950"
-  dfname <- str_replace_all(dfname,"[[:punct:]\\s]+","_") # replace spaces w "_" (*1)
+  dfname <- paste(gear, "1950-1954") # create data frame names for 1950s data in the form: "<geartype> 1950"
+  dfname <- str_replace_all(dfname,"[\\s]+","_") # replace spaces w "_" (*1)
   df1950_list[[dfname]] <- assign(paste(dfname), data.frame(c1950[c1950$gear_type == gear,])) # create and assign these new dataframes the above created dataframe names (dfname), then populate it with rows that contain the correct (gear). THEN, chuck all these dataframes into one 1950s list. 
 }
 
@@ -57,8 +105,8 @@ for (gear in geartypes) {
 df1980_list <- list()
 for (gear in geartypes) {
   print(gear)
-  dfname <- paste(gear, 1980) 
-  dfname <- str_replace_all(dfname,"[[:punct:]\\s]+","_") # replace spaces w "_" (*1)
+  dfname <- paste(gear, "1980-1984") 
+  dfname <- str_replace_all(dfname,"[\\s]+","_") # replace spaces w "_" (*1)
   df1980_list[[dfname]] <- assign(paste(dfname), data.frame(c1980[c1980$gear_type == gear,]))
 }
 
@@ -66,8 +114,8 @@ for (gear in geartypes) {
 df2010_list <- list()
 for (gear in geartypes) {
   print(gear)
-  dfname <- paste(gear, 2010) 
-  dfname <- str_replace_all(dfname,"[[:punct:]\\s]+","_") # replace spaces w "_" (*1)
+  dfname <- paste(gear, "2010-2014") 
+  dfname <- str_replace_all(dfname,"[\\s]+","_") # replace spaces w "_" (*1)
   df2010_list[[dfname]] <- assign(paste(dfname), data.frame(c2010[c2010$gear_type == gear,]))
 }
 
@@ -88,10 +136,10 @@ for (gear in geartypes) {
 #  dir.create(geardir)
 #}
 
-# Manually created 1950, 1980, 2010 directories for this. Everything below this essentially could be MUCH better. 
+# Manually created 1950, 1980, 2010 directories within the "Rasters" directory for this. Everything below this essentially could be MUCH better. 
 
 # 1950-1954 rasters
-setwd('./1950-1954/')
+setwd('./Rasters/1950-1954/')
 names1950 <- names(df1950_list)
 for (i in (1:length(df1950_list))){
   df <- df1950_list[[i]]
@@ -103,10 +151,10 @@ for (i in (1:length(df1950_list))){
 
 # 1980-1984 rasters
 setwd('../1980-1984/')
-names1950 <- names(df1950_list)
-for (i in (1:length(df1950_list))){
-  df <- df1950_list[[i]]
-  filename <- paste0(names1950[[i]])
+names1980 <- names(df1980_list)
+for (i in (1:length(df1980_list))){
+  df <- df1980_list[[i]]
+  filename <- paste0(names1980[[i]])
   xyz <- df[,c('x','y','Catch')]
   r <- rasterFromXYZ(xyz,crs="+proj=utm +ellps=WGS84 +datum=WGS84 +units=m +no_defs", digits=2)
   writeRaster(r, filename, format = "GTiff")
@@ -123,7 +171,7 @@ for (i in (1:length(df2010_list))){
   writeRaster(r, filename, format = "GTiff")
 }
 
-setwd('..')
+setwd('..') # Back to "Rasters" directory.
 
 # ---------------
 # 04 FIGURE PLOTTING
@@ -131,6 +179,15 @@ setwd('..')
 
 # Create beautiful figs(*3) in R instead of messing around in QGIS! 
 # Later: Somehow create separate color scales for each unique "gear" automatically??
+
+# Going to use gillnets from 2010 to test out pretty plots. 
+xyz <- `gillnets_2010-2014`[,c('x', 'y', 'Catch')]
+r_gn <- rasterFromXYZ(xyz,crs="+proj=utm +ellps=WGS84 +datum=WGS84 +units=m +no_defs", digits=5)
+
+#standard <- map("world", fill=TRUE, border=NA, col="grey")
+#pacific_centre <- map("world", fill=TRUE, border=NA, col="grey", wrap=c(23,383))
+
+land <- map_data("world")
 
 theme_map <- function(...) {
   theme_minimal() +
@@ -154,8 +211,31 @@ theme_map <- function(...) {
     )
 }
 
+r_gn_spdf <- rasterToPoints(r_gn)
+r_gn_df <- as.data.frame(r_gn_spdf)
 
-# TESTING FOR GITHUB.
+# TEST USING LEVELPLOT
+# levelplot (r_gn,
+#           col.regions=colr)
+#  + layer(sp.polygons(land))
+
+# TEST USING GGPLOT
+p <- ggplot() + 
+  # Land polygons
+  geom_polygon(data = land, 
+               aes(
+                 x = long, 
+                 y = lat,
+                 group = group
+                 )) +
+  # Gillnets raster 
+  geom_raster(data = r_gn_df,
+                aes(
+                  x = x,
+                  y = y,
+                  fill=Catch)) +
+  theme_map()
+
 
 # ----------------
 # FOOTNOTES
