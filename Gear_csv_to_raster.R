@@ -15,7 +15,6 @@
 
 # Note this part only works if you are in RStudio. If not using RStudio, set wd manually to wherever this script is stored.
 # Set working directory to directory this R script is stored in.
-# Not sure if this is actually working? Need more testing later. 
 set_wd <- function() {
   if (!require(rstudioapi)) {
     install.packages("rstudioapi", repos = "http://cran.stat.sfu.ca/")
@@ -25,6 +24,8 @@ set_wd <- function() {
   setwd(dirname(current_path))
   print(getwd())
 }
+
+set_wd()
 
 
 # Install and load all other necessary packages
@@ -183,16 +184,19 @@ setwd('..') # Back to "Rasters" directory.
 # Going to use gillnets from 2010 to test out pretty plots. 
 xyz <- `gillnets_2010-2014`[,c('x', 'y', 'Catch')]
 r_gn <- rasterFromXYZ(xyz,crs="+proj=utm +ellps=WGS84 +datum=WGS84 +units=m +no_defs", digits=5)
+r_gn_spdf <- rasterToPoints(r_gn) # convert raster to points
+r_gn_df <- as.data.frame(r_gn_spdf) # convert points to dataframe. ggplot can only plot vector based graphics, not rasters.
+log_catch <- r_gn_df # Make dataframe for the log of catch
+log_catch$Catch <- log(log_catch$Catch) # Take log of Catch
+# ULTIMATELY, CAN PROBABLY JUST READ THE CSVs AND SKIP THE RASTERIZING STEPS ALTOGETHER
 
-#standard <- map("world", fill=TRUE, border=NA, col="grey")
-#pacific_centre <- map("world", fill=TRUE, border=NA, col="grey", wrap=c(23,383))
 
-land <- map_data("world")
+land <- map_data("world") # note: if we want Pacific ocean centered, wrap to 23 & 383 longitudes.
 
 theme_map <- function(...) {
   theme_minimal() +
     theme(
-      text = element_text(family = "Ubuntu Regular", color = "#22211d"),
+      text = element_text(family = "Open Sans", color = "#22211d"),
       axis.line = element_blank(),
       axis.text.x = element_blank(),
       axis.text.y = element_blank(),
@@ -211,8 +215,20 @@ theme_map <- function(...) {
     )
 }
 
-r_gn_spdf <- rasterToPoints(r_gn)
-r_gn_df <- as.data.frame(r_gn_spdf)
+# Define color scale
+pal <- scale_fill_viridis(
+  option = "viridis",
+  name = "log(Average catch (tonnes))",
+  guide = guide_colorbar(
+    direction = "horizontal",
+    barheight = unit(2, units = "mm"),
+    barwidth = unit(50, units = "mm"),
+    draw.ulin = F,
+    title.position = "top",
+    title.hjust = 0.5,
+    label.hjust = 0.5))
+
+#pal <- scale_fill_brewer(name="OrRd")
 
 # TEST USING LEVELPLOT
 # levelplot (r_gn,
@@ -220,7 +236,7 @@ r_gn_df <- as.data.frame(r_gn_spdf)
 #  + layer(sp.polygons(land))
 
 # TEST USING GGPLOT
-p <- ggplot() + 
+p <- ggplot() +
   # Land polygons
   geom_polygon(data = land, 
                aes(
@@ -229,13 +245,41 @@ p <- ggplot() +
                  group = group
                  )) +
   # Gillnets raster 
-  geom_raster(data = r_gn_df,
+  geom_raster(data = log_catch,
                 aes(
                   x = x,
                   y = y,
-                  fill=Catch)) +
-  theme_map()
+                  fill=Catch),
+              interpolate = TRUE) +
+  # Previously defined theme
+  theme_map() +
+  # Catch color scale
+  pal +
+  # Labels
+  labs(title = "Industrial catch by gillnets",
+       subtitle = "log(Average catch, 2010-2014)",
+       caption = "Data: Sea Around Us") +
+  # Legend
+  theme(legend.position = "bottom")
 
+# # -- TESTING GGALT AND COORD_PROJ FUNCTION
+# # Install devtools in order to install a github brance of 'ggalt' from someone
+# # NOTE: if you have not installed devtools before, you will need to RESTART R STUDIO for the install_github line to work!
+# if(!require(devtools)) {
+#   install.packages("devtools", repos="http://cran.stat.sfu.ca/")
+#   require(devtools)
+# }
+# # Install branch of ggalt from rplzzz. NOTE: need to RESTART R STUDIO if this first time installing devtools.
+# install_github("rplzzz/ggalt", ref='ggp221')
+# library(ggalt)
+# 
+# # ggalt will now let us use 'coord_proj' which means we can change the projection of our plot wihtout actually having to mess around with the projection of the spatial data itself.
+# p <- p + coord_proj("+proj=robin +lon_0=0 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs")
+
+plot(p)
+
+# See histogram of the raster values
+hist <- hist(r_gn)
 
 # ----------------
 # FOOTNOTES
