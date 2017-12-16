@@ -228,7 +228,17 @@ pal <- scale_fill_viridis(
     title.hjust = 0.5,
     label.hjust = 0.5))
 
-#pal <- scale_fill_brewer(name="OrRd")
+pal <- scale_fill_viridis(
+  option = "viridis",
+  name = "log(Average catch (tonnes))",
+  guide = guide_colorbar(
+    direction = "horizontal",
+    barheight = unit(2, units = "mm"),
+    barwidth = unit(50, units = "mm"),
+    draw.ulin = F,
+    title.position = "top",
+    title.hjust = 0.5,
+    label.hjust = 0.5))
 
 # TEST USING LEVELPLOT
 # levelplot (r_gn,
