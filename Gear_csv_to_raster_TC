@@ -1,0 +1,134 @@
+# ----------------
+# Tim's Gear maps
+# Convert CSV data to rasters (and maybe also shapefiles if u want)
+# CSV data contain industrial allocated catch by geartype per cell. Each CSV contains all gears and catch aggregated into 5 year groups.
+# I've manually used Excel's vlookup to match up cellID to x, y coordinates, but in the future this can be done in R as well. 
+# This code disaggregates each CSV by geartype into a raster map for each geartype & time period.
+# This Datacarpentry workshop is overall super helpful: http://www.datacarpentry.org/R-spatial-raster-vector-lesson/ 
+# ----------------
+
+# ----------------
+# 01 INITIAL SETUP
+# ----------------
+
+# For first timers:
+# install.packages("raster")
+# install.packages("sf")
+# install.packages("rgdal")
+
+# Setup
+library(raster) # raster work
+library(sf) # shapefile work
+library(stringr) # replace spaces w "_". Used in file naming.
+library(dplyr)
+#setwd('C:/Users/spopov/Documents/GIS/Tim/Gear maps')
+setwd("C:/Users/t.cashion/Google Drive/Desktop/Report and Manuscript/Gear Maps/Gear Maps")
+
+# ----------------
+# 02 CSV READ AND DATAFRAME CREATION
+# ----------------
+
+# CSV read
+pacific_cells_without_coords <- read.csv("PacificHS+EEZ_cells.csv")
+cell_coords <- read.csv("CellIDTable.csv")
+pacific_cells <- left_join(pacific_cells_without_coords, cell_coords)
+pacific_nas <- pacific_cells[which(is.na(pacific_cells$x)==TRUE),]
+pacific_cells <- pacific_cells[which(is.na(pacific_cells$x)==FALSE),]
+max_x <- max(as.integer(pacific_cells$x))
+min_x <- min(as.integer(pacific_cells$x))
+max_y <- max(as.integer(pacific_cells$x))
+min_y <- min(as.integer(pacific_cells$x))
+
+
+# Create list of different gear types, using 2010-2014 data. This works bc we have same gears in all data. Ideally would want to loop through all CSVs and get unique values from all of them. 
+
+# Disaggregate gear types
+# USING A FANCY FOR LOOP!!
+df_list <- list()
+geartypes <- unique(pacific_cells$GearTypeID)
+years = seq(1950, 2014, 1)
+
+#years = seq(1950, 1952, 1) #Used for testing with shorter range.
+#Seems to be missing small scale gears from source files?
+geartypes <- "longline" #For creating just a single gear type to start with
+pacific_ll <- pacific_cells[which(pacific_cells$GearTypeID==geartypes),] #Testing out data
+
+for (year in years) {
+  print(year)
+  for (gear in geartypes) {
+    print(gear)
+    dfname <- paste(gear, year)
+    dfname <- str_replace_all(dfname,"[[:punct:]\\s]+","_") # replace spaces w "_" (*1)
+    df_list[[dfname]] <- assign(paste(dfname), data.frame(pacific_cells[which(pacific_cells$GearTypeID == gear & pacific_cells$Year == year),])) # create and assign these new dataframes the above created dataframe names (dfname), then populate it with rows that contain the correct (gear and year). THEN, chuck all these dataframes into one df list. 
+    
+  }
+}
+
+# Output rasters
+setwd('./OutputRasters')
+nameslist <- names(df_list)
+for (i in (1:length(df_list))){
+  df <- df_list[[i]]
+  filename <- paste0(nameslist[[i]])
+  if (nrow(df)>0){
+    xyz <- df[,c('x','y','Catch')]
+    r <- rasterFromXYZ(xyz,crs="+proj=utm +lat_1=-180 +lat_2=180 +lon_0=-100 +ellps=WGS84 +datum=WGS84 +units=m +no_defs", digits=2)
+    writeRaster(r, filename, format = "GTiff", overwrite=TRUE)
+  } #End IF statement
+}#End loop
+
+
+for (i in (1:length(df_list))){
+  df <- df_list[[i]]
+  filename <- paste0(nameslist[[i]])
+  if (nrow(df)>0){
+    
+    }#End IF statement
+}#End loop
+
+fs <- list.files(path="C:/Users/t.cashion/Google Drive/Desktop/Report and Manuscript/Gear Maps/Gear Maps/OutputRasters", pattern = "tif$", full.names = TRUE)
+#library(raster)
+s <- raster::stack(fs)
+writeRaster(s, "hdf8_EVI.TIF")
+
+
+# ---------------
+# 04 FIGURE PLOTTING
+# ---------------
+
+# Create beautiful figs(*3) in R instead of messing around in QGIS! 
+# Later: Somehow create separate color scales for each unique "gear" automatically??
+
+theme_map <- function(...) {
+  theme_minimal() +
+    theme(
+      text = element_text(family = "Ubuntu Regular", color = "#22211d"),
+      axis.line = element_blank(),
+      axis.text.x = element_blank(),
+      axis.text.y = element_blank(),
+      axis.ticks = element_blank(),
+      axis.title.x = element_blank(),
+      axis.title.y = element_blank(),
+      # panel.grid.minor = element_line(color = "#ebebe5", size = 0.2),
+      # panel.grid.major = element_line(color = "#ebebe5", size = 0.2),
+      panel.grid.minor = element_blank(),
+      panel.grid.major = element_blank(),
+      plot.background = element_rect(fill = "#f5f5f2", color = NA), 
+      panel.background = element_rect(fill = "#f5f5f2", color = NA), 
+      legend.background = element_rect(fill = "#f5f5f2", color = NA),
+      panel.border = element_blank(),
+      ...
+    )
+}
+
+p <- theme_map(r)
+p <- p + theme_map()
+print(p)
+
+# ----------------
+# FOOTNOTES
+# ----------------
+
+# *1. https://stackoverflow.com/questions/13985215/replace-special-characters-along-with-the-space-in-list-of-strings
+# *2. https://www.rdocumentation.org/packages/raster/versions/2.6-7/topics/rasterFromXYZ 
+# *3. https://timogrossenbacher.ch/2016/12/beautiful-thematic-maps-with-ggplot2-only/ 
